@@ -3,6 +3,9 @@ if __name__ == '__main__':
     # Define Constant
     fetched_video_details_list = []
     not_present_video_ids = []
+    MAX_CONCURRENT = 10
+    s6_s7_elapsed_time = 0
+    # 0000088ZZQg
 
     # Importing Python Modules:S1
     try:
@@ -11,8 +14,9 @@ if __name__ == '__main__':
         import sqlite3
         import secrets
         import string
-        import subprocess
         import json
+        import asyncio
+        import time
     except Exception as error:
         print(f'ERROR - [Main:S1] - {str(error)}')
 
@@ -79,33 +83,77 @@ if __name__ == '__main__':
     except Exception as error:
         print(f'ERROR - [Main:S5] - {str(error)}')
 
-    # Execute yt-dlp For Each Not-Fetched video_id And Build Python List:S6
+    # Initialize Video Details Fetch Execution Timer
+    s6_s7_start_time = time.time()
+
+    # Execute "yt-dlp" For Each Not-Fetched "video_id":S6
     try:
-        print('')
-        print('-' * 30)
-        for video_id_row in not_fetched_video_ids:
-            yt_dlp_command = [
-                'yt-dlp',
-                '--simulate',
-                '--print',
-                '{"title": %(title)j, "channel": %(channel)j, "duration": %(duration)s, "view_count": %(view_count)s, "upload_date": "%(upload_date)s"}',
-                f'https://www.youtube.com/watch?v={video_id_row[0]}'
-            ]
-            yt_dlp_process = subprocess.run(yt_dlp_command, capture_output = True, text = True)
-            if yt_dlp_process.returncode == 0 and yt_dlp_process.stdout.strip():
-                print(f'-> {video_id_row[0]} : Present')
-                fetched_video_details_list.append({
-                    'video_id': video_id_row[0],
-                    'data': json.loads(yt_dlp_process.stdout.strip())
-                })
-            else:
-                print(f'-> {video_id_row[0]} : Not-Present')
-                not_present_video_ids.append(video_id_row[0])
-        print('-' * 30)
+        async def fetch_video_details(video_id, semaphore):
+            try:
+                async with semaphore:
+                    yt_dlp_command = [
+                        'yt-dlp',
+                        '--simulate',
+                        '--print',
+                        '{"title": %(title)j, "channel": %(channel)j, "duration": %(duration)s, "view_count": %(view_count)s, "upload_date": "%(upload_date)s"}',
+                        f'https://www.youtube.com/watch?v={video_id}'
+                    ]
+                    process = await asyncio.create_subprocess_exec(
+                        *yt_dlp_command,
+                        stdout = asyncio.subprocess.PIPE,
+                        stderr = asyncio.subprocess.PIPE
+                    )
+                    stdout, _ = await process.communicate()
+                    if process.returncode == 0 and stdout.strip():
+                        return {
+                            'status': 'present',
+                            'video_id': video_id,
+                            'data': json.loads(stdout.decode().strip())
+                        }
+                    return {
+                        'status': 'not_present',
+                        'video_id': video_id
+                    }
+            except Exception as error:
+                return {
+                    'status': 'skipped',
+                    'video_id': video_id
+                }
     except Exception as error:
         print(f'ERROR - [Main:S6] - {str(error)}')
 
-    # Update "yt_video_details" Table With Successfully Fetched Data:S7
+    # Build Python List With "Fetched" / "Not-Present" Video Details:S7
+    try:
+        async def fetch_all_video_details(not_fetched_video_ids):
+            semaphore = asyncio.Semaphore(MAX_CONCURRENT)
+            tasks = [
+                fetch_video_details(video_id_row[0], semaphore)
+                for video_id_row in not_fetched_video_ids
+            ]
+            results = await asyncio.gather(*tasks)
+            fetched_video_details_list = []
+            not_present_video_ids = []
+            for result in results:
+                if result['status'] == 'present':
+                    fetched_video_details_list.append({
+                        'video_id': result['video_id'],
+                        'data': result['data']
+                    })
+                elif result['status'] == 'not_present':
+                    not_present_video_ids.append(result['video_id'])
+                else:
+                    pass
+            return fetched_video_details_list, not_present_video_ids
+        fetched_video_details_list, not_present_video_ids = (
+            asyncio.run(fetch_all_video_details(not_fetched_video_ids))
+        )
+    except Exception as error:
+        print(f'ERROR - [Main:S7] - {str(error)}')
+
+    # Stop Video Details Fetch Execution Timer
+    s6_s7_elapsed_time = time.time() - s6_s7_start_time
+
+    # Update "yt_video_details" Table With Successfully Fetched Data:S8
     try:
         yt_video_present_db_connection = sqlite3.connect(str(yt_video_db_file_path))
         yt_video_present_db_cursor = yt_video_present_db_connection.cursor()
@@ -128,9 +176,9 @@ if __name__ == '__main__':
         yt_video_present_db_cursor.close()
         yt_video_present_db_connection.close()
     except Exception as error:
-        print(f'ERROR - [Main:S7] - {str(error)}')
+        print(f'ERROR - [Main:S8] - {str(error)}')
 
-    # Update "yt_video_details" Table With Not-Present Status:S8
+    # Update "yt_video_details" Table With Not-Present Status:S9
     try:
         yt_video_not_present_db_connection = sqlite3.connect(str(yt_video_db_file_path))
         yt_video_not_present_db_cursor = yt_video_not_present_db_connection.cursor()
@@ -153,4 +201,6 @@ if __name__ == '__main__':
         yt_video_not_present_db_cursor.close()
         yt_video_not_present_db_connection.close()
     except Exception as error:
-        print(f'ERROR - [Main:S8] - {str(error)}')
+        print(f'ERROR - [Main:S9] - {str(error)}')
+
+    print(f'Time Taken For S6 And S7 : {s6_s7_elapsed_time:.2f} Seconds')

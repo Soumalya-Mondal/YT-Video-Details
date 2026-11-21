@@ -50,31 +50,31 @@ if __name__ == '__main__':
 
     # Generate And Insert Random 11-Character video_ids Into Database:S4
     try:
-        yt_table_insert_db_connection = sqlite3.connect(str(yt_video_db_file_path))
-        yt_table_insert_db_cursor = yt_table_insert_db_connection.cursor()
+        yt_video_id_insert_db_connection = sqlite3.connect(str(yt_video_db_file_path))
+        yt_video_id_db_cursor = yt_video_id_insert_db_connection.cursor()
         for _ in range(100):
             generated_video_id = ''.join(secrets.choice(string.ascii_letters + string.digits + '-_') for _ in range(11))
-            yt_table_insert_db_cursor.execute('''
+            yt_video_id_db_cursor.execute('''
                 INSERT OR IGNORE INTO yt_video_details
                 (video_id, title, channel, duration_in_sec, views_count, upload_date, row_updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             ''', (generated_video_id, 'N/A', 'N/A', 0, 0, 'N/A', datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')))
-        yt_table_insert_db_connection.commit()
-        yt_table_insert_db_cursor.close()
-        yt_table_insert_db_connection.close()
+        yt_video_id_insert_db_connection.commit()
+        yt_video_id_db_cursor.close()
+        yt_video_id_insert_db_connection.close()
     except Exception as error:
         print(f'ERROR - [Main:S4] - {str(error)}')
 
     # Fetch Rows With "video_status" = 'Not-Fetched' From Database:S5
     try:
-        yt_table_fetch_db_connection = sqlite3.connect(str(yt_video_db_file_path))
-        yt_table_fetch_db_cursor = yt_table_fetch_db_connection.cursor()
-        yt_table_fetch_db_cursor.execute('''
+        yt_video_id_fetch_db_connection = sqlite3.connect(str(yt_video_db_file_path))
+        yt_video_id_fetch_db_cursor = yt_video_id_fetch_db_connection.cursor()
+        yt_video_id_fetch_db_cursor.execute('''
             SELECT video_id FROM yt_video_details WHERE video_status = ?
         ''', ('Not-Fetched',))
-        not_fetched_video_ids = yt_table_fetch_db_cursor.fetchall()
-        yt_table_fetch_db_cursor.close()
-        yt_table_fetch_db_connection.close()
+        not_fetched_video_ids = yt_video_id_fetch_db_cursor.fetchall()
+        yt_video_id_fetch_db_cursor.close()
+        yt_video_id_fetch_db_connection.close()
     except Exception as error:
         print(f'ERROR - [Main:S5] - {str(error)}')
 
@@ -103,39 +103,37 @@ if __name__ == '__main__':
     except Exception as error:
         print(f'ERROR - [Main:S6] - {str(error)}')
 
-    # Update yt_video_details Table With Successfully Fetched Data:S7
+    # Update "yt_video_details" Table With Successfully Fetched Data:S7
     try:
-        yt_table_update_db_connection = sqlite3.connect(str(yt_video_db_file_path))
-        yt_table_update_db_cursor = yt_table_update_db_connection.cursor()
+        yt_video_present_db_connection = sqlite3.connect(str(yt_video_db_file_path))
+        yt_video_present_db_cursor = yt_video_present_db_connection.cursor()
         for fetched_video in fetched_video_details_list:
-            video_id = fetched_video.get('video_id')
-            video_data = fetched_video.get('data', {})
-            yt_table_update_db_cursor.execute('''
+            yt_video_present_db_cursor.execute('''
                 UPDATE yt_video_details
                 SET title = ?, channel = ?, duration_in_sec = ?, views_count = ?, upload_date = ?, video_status = ?, row_updated_at = ?
                 WHERE video_id = ?
             ''', (
-                video_data.get('title', 'N/A'),
-                video_data.get('channel', 'N/A'),
-                str(video_data.get('duration', 0)),
-                str(video_data.get('view_count', 0)),
-                video_data.get('upload_date', 'N/A'),
+                fetched_video.get('data', {}).get('title', 'N/A'),
+                fetched_video.get('data', {}).get('channel', 'N/A'),
+                str(fetched_video.get('data', {}).get('duration', 0)),
+                str(fetched_video.get('data', {}).get('view_count', 0)),
+                fetched_video.get('data', {}).get('upload_date', 'N/A'),
                 'Fetched',
                 datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-                video_id
+                fetched_video.get('video_id')
             ))
-        yt_table_update_db_connection.commit()
-        yt_table_update_db_cursor.close()
-        yt_table_update_db_connection.close()
+        yt_video_present_db_connection.commit()
+        yt_video_present_db_cursor.close()
+        yt_video_present_db_connection.close()
     except Exception as error:
         print(f'ERROR - [Main:S7] - {str(error)}')
 
-    # Update yt_video_details Table With Not-Present Status:S8
+    # Update "yt_video_details" Table With Not-Present Status:S8
     try:
-        yt_table_not_present_db_connection = sqlite3.connect(str(yt_video_db_file_path))
-        yt_table_not_present_db_cursor = yt_table_not_present_db_connection.cursor()
+        yt_video_not_present_db_connection = sqlite3.connect(str(yt_video_db_file_path))
+        yt_video_not_present_db_cursor = yt_video_not_present_db_connection.cursor()
         for not_present_video_id in not_present_video_ids:
-            yt_table_not_present_db_cursor.execute('''
+            yt_video_not_present_db_cursor.execute('''
                 UPDATE yt_video_details
                 SET title = ?, channel = ?, duration_in_sec = ?, views_count = ?, upload_date = ?, video_status = ?, row_updated_at = ?
                 WHERE video_id = ?
@@ -149,8 +147,8 @@ if __name__ == '__main__':
                 datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
                 not_present_video_id
             ))
-        yt_table_not_present_db_connection.commit()
-        yt_table_not_present_db_cursor.close()
-        yt_table_not_present_db_connection.close()
+        yt_video_not_present_db_connection.commit()
+        yt_video_not_present_db_cursor.close()
+        yt_video_not_present_db_connection.close()
     except Exception as error:
         print(f'ERROR - [Main:S8] - {str(error)}')

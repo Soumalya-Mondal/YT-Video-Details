@@ -3,8 +3,8 @@ if __name__ == '__main__':
     # Define Constant
     fetched_video_details_list = []
     not_present_video_ids = []
-    MAX_CONCURRENT = 10
-    s6_s7_elapsed_time = 0
+    MAX_CONCURRENT = 100
+    video_details_fetched_elapsed_time = 0
     # 0000088ZZQg
 
     # Importing Python Modules:S1
@@ -151,7 +151,7 @@ if __name__ == '__main__':
         print(f'ERROR - [Main:S7] - {str(error)}')
 
     # Stop Video Details Fetch Execution Timer
-    s6_s7_elapsed_time = time.time() - s6_s7_start_time
+    video_details_fetched_elapsed_time = time.time() - s6_s7_start_time
 
     # Update "yt_video_details" Table With Successfully Fetched Data:S8
     try:
@@ -203,4 +203,4 @@ if __name__ == '__main__':
     except Exception as error:
         print(f'ERROR - [Main:S9] - {str(error)}')
 
-    print(f'Time Taken For S6 And S7 : {s6_s7_elapsed_time:.2f} Seconds')
+    print(f'Time Taken For Video Details Fetch : {video_details_fetched_elapsed_time:.2f} Seconds')

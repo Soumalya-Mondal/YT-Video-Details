@@ -50,7 +50,7 @@ if __name__ == '__main__':
 
     # Take User Input And Generate Random 11-Character video_ids Into Database:S4
     try:
-        total_video_ids_to_generate = int(input('How Many Video Details You Want? '))
+        total_video_ids_to_generate = int(input('\nHow Many Video Details You Want? '))
         yt_video_id_insert_db_connection = sqlite3.connect(str(yt_video_db_file_path))
         yt_video_id_db_cursor = yt_video_id_insert_db_connection.cursor()
         for _ in range(total_video_ids_to_generate):
@@ -59,7 +59,7 @@ if __name__ == '__main__':
                 INSERT OR IGNORE INTO yt_video_details
                 (video_id, title, channel, duration_in_sec, views_count, upload_date, row_updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (generated_video_id, 'N/A', 'N/A', 0, 0, 'N/A', datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')))
+            ''', (generated_video_id, 'N/A', 'N/A', 0, 0, 'N/A', datetime.now(timezone.utc).isoformat()))
         yt_video_id_insert_db_connection.commit()
         yt_video_id_db_cursor.close()
         yt_video_id_insert_db_connection.close()
@@ -81,6 +81,8 @@ if __name__ == '__main__':
 
     # Execute yt-dlp For Each Not-Fetched video_id And Build Python List:S6
     try:
+        print('')
+        print('-' * 30)
         for video_id_row in not_fetched_video_ids:
             yt_dlp_command = [
                 'yt-dlp',
@@ -99,6 +101,7 @@ if __name__ == '__main__':
             else:
                 print(f'-> {video_id_row[0]} : Not-Present')
                 not_present_video_ids.append(video_id_row[0])
+        print('-' * 30)
     except Exception as error:
         print(f'ERROR - [Main:S6] - {str(error)}')
 
@@ -118,7 +121,7 @@ if __name__ == '__main__':
                 str(fetched_video.get('data', {}).get('view_count', 0)),
                 fetched_video.get('data', {}).get('upload_date', 'N/A'),
                 'Fetched',
-                datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                datetime.now(timezone.utc).isoformat(),
                 fetched_video.get('video_id')
             ))
         yt_video_present_db_connection.commit()
@@ -143,7 +146,7 @@ if __name__ == '__main__':
                 0,
                 'N/A',
                 'Not-Present',
-                datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                datetime.now(timezone.utc).isoformat(),
                 not_present_video_id
             ))
         yt_video_not_present_db_connection.commit()

@@ -48,11 +48,12 @@ if __name__ == '__main__':
     except Exception as error:
         print(f'ERROR - [Main:S3] - {str(error)}')
 
-    # Generate And Insert Random 11-Character video_ids Into Database:S4
+    # Take User Input And Generate Random 11-Character video_ids Into Database:S4
     try:
+        total_video_ids_to_generate = int(input('How Many Video Details You Want? '))
         yt_video_id_insert_db_connection = sqlite3.connect(str(yt_video_db_file_path))
         yt_video_id_db_cursor = yt_video_id_insert_db_connection.cursor()
-        for _ in range(100):
+        for _ in range(total_video_ids_to_generate):
             generated_video_id = ''.join(secrets.choice(string.ascii_letters + string.digits + '-_') for _ in range(11))
             yt_video_id_db_cursor.execute('''
                 INSERT OR IGNORE INTO yt_video_details
@@ -81,25 +82,23 @@ if __name__ == '__main__':
     # Execute yt-dlp For Each Not-Fetched video_id And Build Python List:S6
     try:
         for video_id_row in not_fetched_video_ids:
-            video_id = video_id_row[0]
-            video_url = f'https://www.youtube.com/watch?v={video_id}'
             yt_dlp_command = [
                 'yt-dlp',
                 '--simulate',
                 '--print',
                 '{"title": %(title)j, "channel": %(channel)j, "duration": %(duration)s, "view_count": %(view_count)s, "upload_date": "%(upload_date)s"}',
-                video_url
+                f'https://www.youtube.com/watch?v={video_id_row[0]}'
             ]
             yt_dlp_process = subprocess.run(yt_dlp_command, capture_output = True, text = True)
             if yt_dlp_process.returncode == 0 and yt_dlp_process.stdout.strip():
-                print(f'-> {video_id} : Present')
+                print(f'-> {video_id_row[0]} : Present')
                 fetched_video_details_list.append({
-                    'video_id': video_id,
+                    'video_id': video_id_row[0],
                     'data': json.loads(yt_dlp_process.stdout.strip())
                 })
             else:
-                print(f'-> {video_id} : Not-Present')
-                not_present_video_ids.append(video_id)
+                print(f'-> {video_id_row[0]} : Not-Present')
+                not_present_video_ids.append(video_id_row[0])
     except Exception as error:
         print(f'ERROR - [Main:S6] - {str(error)}')
 
